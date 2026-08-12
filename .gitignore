@@ -33,3 +33,10 @@ reports/
 
 # Jupyter
 .ipynb_checkpoints/
+
+dataxid_dev_env/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
