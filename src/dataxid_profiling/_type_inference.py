@@ -15,6 +15,7 @@ class ColumnType(Enum):
     DATETIME = auto()
     TEXT = auto()
     UNSUPPORTED = auto()
+    TIMESERIES = auto() 
 
 
 _TEMPORAL_BASES: frozenset[type[pl.DataType]] = frozenset(
@@ -43,10 +44,16 @@ def infer_types(
     ]
     unique_ratios = _batch_unique_ratios(df, string_cols, n_rows)
 
+    autocorrelations: dict[str, float] = {}
+    if config.timeseries_active:
+        autocorrelations = _batch_autocorrelations(
+            df, list(numeric_cols), n_rows, config.timeseries_lags,
+        )
+    
     result: dict[str, ColumnType] = {}
     for col_name, dtype in zip(df.columns, df.dtypes, strict=True):
         result[col_name] = _infer_single(
-            col_name, dtype, numeric_cols, unique_ratios, config,
+            col_name, dtype, numeric_cols, unique_ratios, autocorrelations, config
         )
 
     return result
@@ -80,12 +87,41 @@ def _batch_unique_ratios(
 
     return ratios
 
+def _batch_autocorrelations(
+    df: pl.DataFrame,
+    numeric_cols: list[str],
+    n_rows: int,
+    lags: tuple[int, ...],
+) -> dict[str, float]:
+    """Compute max autocorrelation across the given lags, per numeric column."""
+    if not numeric_cols or n_rows < 2:
+        return {}
+
+    best: dict[str, float] = {col: 0.0 for col in numeric_cols}
+
+    for lag in lags:
+        if lag >= n_rows:
+            continue
+
+        exprs = [
+            pl.corr(pl.col(col), pl.col(col).shift(lag)).alias(f"{col}__ac_{lag}")
+            for col in numeric_cols
+        ]
+        row = df.select(exprs).row(0, named=True)
+
+        for col in numeric_cols:
+            val = row[f"{col}__ac_{lag}"] or 0.0
+            if val > best[col]:
+                best[col] = val
+
+    return best
 
 def _infer_single(
     col_name: str,
     dtype: pl.DataType,
     numeric_cols: set[str],
     unique_ratios: dict[str, float],
+    autocorrelations: dict[str, float],
     config: ProfileConfig,
 ) -> ColumnType:
     dtype_class = type(dtype)
@@ -97,6 +133,11 @@ def _infer_single(
         return ColumnType.DATETIME
 
     if col_name in numeric_cols:
+        if (
+            config.timeseries_active
+            and autocorrelations.get(col_name, 0.0) >= config.timeseries_autocorrelation
+        ):
+            return ColumnType.TIMESERIES
         return ColumnType.NUMERIC
 
     if dtype_class == pl.Categorical:

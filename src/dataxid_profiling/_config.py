@@ -15,6 +15,11 @@ class ProfileConfig:
     # Type inference
     text_unique_ratio: float = 0.5  # unique/count > this → text-like, not categorical
 
+    # Time series
+    timeseries_active: bool = False  # off by default
+    timeseries_autocorrelation: float = 0.7  # any lag >= this → TIMESERIES
+    timeseries_lags: tuple[int, ...] = (1, 7, 14, 30)  # daily/weekly/biweekly/monthly
+
     # Alert thresholds
     missing_threshold: float = 0.05  # > 5% missing → HIGH_MISSING alert
     cardinality_threshold: float = 0.95  # unique/count > 95% → HIGH_CARDINALITY alert
@@ -51,6 +56,12 @@ class ProfileConfig:
             raise ValueError(msg)
         if not 0.0 <= self.text_unique_ratio <= 1.0:
             msg = f"text_unique_ratio must be in [0, 1], got {self.text_unique_ratio}"
+            raise ValueError(msg)
+        if not 0.0 <= self.timeseries_autocorrelation <= 1.0:
+            msg = f"timeseries_autocorrelation must be in [0, 1], got {self.timeseries_autocorrelation}"
+            raise ValueError(msg)
+        if any(lag < 1 for lag in self.timeseries_lags):
+            msg = f"timeseries_lags must all be >= 1, got {self.timeseries_lags}"
             raise ValueError(msg)
         if not 0.0 <= self.missing_threshold <= 1.0:
             msg = f"missing_threshold must be in [0, 1], got {self.missing_threshold}"
