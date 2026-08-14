@@ -4,6 +4,7 @@ from enum import Enum, auto
 
 import polars as pl
 import polars.selectors as cs
+import math
 
 from dataxid_profiling._config import ProfileConfig
 
@@ -110,7 +111,9 @@ def _batch_autocorrelations(
         row = df.select(exprs).row(0, named=True)
 
         for col in numeric_cols:
-            val = row[f"{col}__ac_{lag}"] or 0.0
+            val = row[f"{col}__ac_{lag}"]
+            if val is None or math.isnan(val):
+                val = 0.0
             if val > best[col]:
                 best[col] = val
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import polars as pl
+import random
 
 from dataxid_profiling._config import ProfileConfig
 from dataxid_profiling._type_inference import ColumnType, infer_types
@@ -125,3 +126,48 @@ class TestEdgeCases:
     def test_default_config_when_none(self, numeric_df: pl.DataFrame):
         types = infer_types(numeric_df, config=None)
         assert types["age"] == ColumnType.NUMERIC
+
+
+class TestTimeseriesInference:
+    def test_trend_detected_as_timeseries(self):
+        rng = random.Random(42)
+        n = 200
+        trend = [i * 0.5 + rng.gauss(0, 1) for i in range(n)]
+
+        df = pl.DataFrame({"trend_col": trend})
+        config = ProfileConfig(timeseries_active=True)
+
+        assert infer_types(df, config)["trend_col"] == ColumnType.TIMESERIES
+
+    def test_random_column_stays_numeric(self):
+        rng = random.Random(42)
+        n = 200
+        noise = [rng.gauss(0, 1) for _ in range(n)]
+
+        df = pl.DataFrame({"random_col": noise})
+        config = ProfileConfig(timeseries_active=True)
+
+        assert infer_types(df, config)["random_col"] == ColumnType.NUMERIC
+
+    def test_inactive_by_default(self):
+        rng = random.Random(42)
+        n = 200
+        trend = [i * 0.5 + rng.gauss(0, 1) for i in range(n)]
+
+        df = pl.DataFrame({"trend_col": trend})
+
+        # timeseries_active defaults to False → must stay NUMERIC
+        # even though the same column would be TIMESERIES if active.
+        assert infer_types(df)["trend_col"] == ColumnType.NUMERIC
+
+    def test_custom_autocorrelation_threshold(self):
+        rng = random.Random(42)
+        n = 200
+        trend = [i * 0.5 + rng.gauss(0, 1) for i in range(n)]
+
+        df = pl.DataFrame({"trend_col": trend})
+
+        # Threshold above 1.0 is unreachable → must always stay NUMERIC.
+        config = ProfileConfig(timeseries_active=True, timeseries_autocorrelation=1.0)
+
+        assert infer_types(df, config)["trend_col"] == ColumnType.NUMERIC
