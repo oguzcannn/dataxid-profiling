@@ -16,6 +16,7 @@ from dataxid_profiling._dataset_overview import DatasetOverview, compute_overvie
 from dataxid_profiling._ingest import ingest
 from dataxid_profiling._interactions import InteractionData, compute_interactions
 from dataxid_profiling._report._html import render_html
+from dataxid_profiling._timeseries import compute_timeseries
 from dataxid_profiling._type_inference import ColumnType, infer_types
 
 if TYPE_CHECKING:
@@ -63,6 +64,9 @@ class ProfileReport:
         self._interactions: InteractionData | None = compute_interactions(
             self._df, self._column_types, self._config
         )
+        self._timeseries: dict[str, dict] = compute_timeseries(
+            self._df, self._column_types, self._config
+        )
         self._alerts: list[Alert] = check_quality(
             self._column_stats, self._overview, self._config, self._correlations
         )
@@ -99,6 +103,10 @@ class ProfileReport:
     def interactions(self) -> InteractionData | None:
         return self._interactions
 
+    @property
+    def timeseries(self) -> dict[str, dict]:
+        return self._timeseries
+
     def to_dict(self) -> dict[str, Any]:
         corr_dict: dict[str, Any] = {}
         for method, cr in self._correlations.items():
@@ -122,6 +130,7 @@ class ProfileReport:
             ],
             "correlations": corr_dict,
             "interactions": self._serialize_interactions(),
+            "timeseries": self._timeseries,
         }
 
     def _serialize_interactions(self) -> dict[str, Any] | None:

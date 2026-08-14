@@ -19,6 +19,7 @@ class ProfileConfig:
     timeseries_active: bool = False  # off by default
     timeseries_autocorrelation: float = 0.7  # any lag >= this → TIMESERIES
     timeseries_lags: tuple[int, ...] = (1, 7, 14, 30)  # daily/weekly/biweekly/monthly
+    timeseries_significance: float = 0.05  # ADF p-value 
 
     # Alert thresholds
     missing_threshold: float = 0.05  # > 5% missing → HIGH_MISSING alert
@@ -62,6 +63,9 @@ class ProfileConfig:
             raise ValueError(msg)
         if any(lag < 1 for lag in self.timeseries_lags):
             msg = f"timeseries_lags must all be >= 1, got {self.timeseries_lags}"
+            raise ValueError(msg)
+        if not 0.0 <= self.timeseries_significance <= 1.0:
+            msg = f"timeseries_significance must be in [0, 1], got {self.timeseries_significance}"
             raise ValueError(msg)
         if not 0.0 <= self.missing_threshold <= 1.0:
             msg = f"missing_threshold must be in [0, 1], got {self.missing_threshold}"
