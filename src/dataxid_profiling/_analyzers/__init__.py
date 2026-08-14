@@ -138,6 +138,7 @@ def analyze(
         ColumnType.BOOLEAN: analyze_boolean,
         ColumnType.DATETIME: analyze_datetime,
         ColumnType.TEXT: analyze_text,
+        ColumnType.TIMESERIES: analyze_numeric,
     }
 
     results: dict[str, ColumnStats] = {}
