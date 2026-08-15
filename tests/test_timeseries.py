@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import math
 import random
 
 import polars as pl
 
 from dataxid_profiling._config import ProfileConfig
-from dataxid_profiling._timeseries import compute_timeseries, stationarity_test
 from dataxid_profiling._type_inference import infer_types
-
+from dataxid_profiling._timeseries import compute_timeseries, seasonality_test, stationarity_test
 
 class TestStationarityTest:
     def test_trending_series_is_not_stationary(self):
@@ -63,3 +63,43 @@ class TestComputeTimeseries:
         result = compute_timeseries(df, column_types, config)
 
         assert result == {}
+
+
+class TestSeasonalityTest:
+    def test_seasonal_series_is_detected(self):
+        n = 200
+        seasonal = [10 * math.sin(2 * math.pi * i / 7) for i in range(n)]
+
+        result = seasonality_test(pl.Series(seasonal))
+
+        assert result["seasonality_presence"] is True
+        assert len(result["seasonalities"]) > 0
+
+    def test_trend_only_series_has_no_seasonality(self):
+        n = 200
+        trend = [i * 0.5 for i in range(n)]
+
+        result = seasonality_test(pl.Series(trend))
+
+        assert result["seasonality_presence"] is False
+        assert result["seasonalities"] == []
+
+    def test_too_few_values_returns_no_seasonality(self):
+        result = seasonality_test(pl.Series([1.0, 2.0]))
+
+        assert result["seasonality_presence"] is False
+
+
+class TestComputeTimeseriesWithSeasonality:
+    def test_seasonal_result_included(self):
+        n = 200
+        seasonal = [10 * math.sin(2 * math.pi * i / 7) for i in range(n)]
+
+        df = pl.DataFrame({"seasonal_col": seasonal})
+        config = ProfileConfig(timeseries_active=True)
+
+        column_types = infer_types(df, config)
+        result = compute_timeseries(df, column_types, config)
+
+        assert "seasonal_col" in result
+        assert result["seasonal_col"]["seasonality_presence"] is True
