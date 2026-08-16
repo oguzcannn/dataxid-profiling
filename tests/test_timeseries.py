@@ -7,7 +7,7 @@ import polars as pl
 
 from dataxid_profiling._config import ProfileConfig
 from dataxid_profiling._type_inference import infer_types
-from dataxid_profiling._timeseries import acf_pacf_curve, compute_timeseries, seasonality_test, stationarity_test
+from dataxid_profiling._timeseries import acf_pacf_curve, compute_timeseries, seasonality_test, stationarity_test, datetime_axis_summary
 
 import pytest
 
@@ -131,3 +131,41 @@ class TestAcfPacfCurve:
 
         assert result["acf"] == []
         assert result["pacf"] == []
+
+
+class TestDatetimeAxisSummary:
+    def test_detects_start_and_end(self):
+        from datetime import datetime, timedelta
+
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(10)]
+        result = datetime_axis_summary(pl.Series(dates))
+
+        assert result["start"] == dates[0]
+        assert result["end"] == dates[-1]
+
+    def test_detects_gap(self):
+        from datetime import datetime, timedelta
+
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(10)]
+        dates += [datetime(2024, 1, 20) + timedelta(days=i) for i in range(10)]
+
+        result = datetime_axis_summary(pl.Series(dates))
+
+        assert result["n_gaps"] == 1
+        assert result["gap_mean_seconds"] == pytest.approx(864000.0)
+
+    def test_no_gap_when_regular(self):
+        from datetime import datetime, timedelta
+
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(20)]
+        result = datetime_axis_summary(pl.Series(dates))
+
+        assert result["n_gaps"] == 0
+
+    def test_too_few_values_returns_none(self):
+        from datetime import datetime
+
+        result = datetime_axis_summary(pl.Series([datetime(2024, 1, 1)]))
+
+        assert result["start"] is None
+        assert result["n_gaps"] == 0

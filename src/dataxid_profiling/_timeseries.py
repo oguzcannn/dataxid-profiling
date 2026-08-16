@@ -217,3 +217,65 @@ def acf_pacf_curve(
         "acf": [float(v) for v in acf_values],
         "pacf": [float(v) for v in pacf_values],
     }
+
+
+def datetime_axis_summary(
+    series: pl.Series,
+    config: ProfileConfig | None = None,
+) -> dict:
+    """
+    Start/end/typical interval and gap detection for a datetime column.
+    """
+
+    if config is None:
+        config = ProfileConfig()
+
+    values = series.drop_nulls().sort()
+
+    if len(values) < 2:
+        return {
+            "start": None, "end": None, "mean_interval_seconds": None,
+            "n_gaps": 0, "gap_min_seconds": None,
+            "gap_max_seconds": None, "gap_mean_seconds": None,
+        }
+
+    diffs = values.diff().drop_nulls().dt.total_seconds().to_numpy()
+    mean_interval = float(diffs.mean())
+
+    threshold = config.timeseries_gap_tolerance * mean_interval
+    gap_diffs = diffs[diffs > threshold]
+
+    return {
+        "start": values[0],
+        "end": values[-1],
+        "mean_interval_seconds": mean_interval,
+        "n_gaps": int(len(gap_diffs)),
+        "gap_min_seconds": float(gap_diffs.min()) if len(gap_diffs) else None,
+        "gap_max_seconds": float(gap_diffs.max()) if len(gap_diffs) else None,
+        "gap_mean_seconds": float(gap_diffs.mean()) if len(gap_diffs) else None,
+    }
+
+
+def compute_datetime_summary(
+    df: pl.DataFrame,
+    column_types: dict,
+    config: ProfileConfig | None = None,
+) -> dict[str, dict]:
+    """
+    Run datetime_axis_summary on every column inferred as DATETIME.
+    """
+
+    if config is None:
+        config = ProfileConfig()
+
+    from dataxid_profiling._type_inference import ColumnType
+
+    results: dict[str, dict] = {}
+
+    for col_name, col_type in column_types.items():
+        if col_type != ColumnType.DATETIME:
+            continue
+
+        results[col_name] = datetime_axis_summary(df[col_name], config)
+
+    return results

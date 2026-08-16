@@ -22,6 +22,7 @@ class ProfileConfig:
     timeseries_significance: float = 0.05  # ADF p-value 
     timeseries_seasonality_mad_threshold: float = 6.0  # FFT peak
     timeseries_acf_pacf_lag: int = 100  # max lag for the full ACF/PACF curve
+    timeseries_gap_tolerance: float = 2.0  # gap flagged if interval > tolerance × mean interval
 
     # Alert thresholds
     missing_threshold: float = 0.05  # > 5% missing → HIGH_MISSING alert
@@ -74,6 +75,9 @@ class ProfileConfig:
             raise ValueError(msg)
         if self.timeseries_acf_pacf_lag < 1:
             msg = f"timeseries_acf_pacf_lag must be >= 1, got {self.timeseries_acf_pacf_lag}"
+            raise ValueError(msg)
+        if self.timeseries_gap_tolerance <= 0:
+            msg = f"timeseries_gap_tolerance must be > 0, got {self.timeseries_gap_tolerance}"
             raise ValueError(msg)
         if not 0.0 <= self.missing_threshold <= 1.0:
             msg = f"missing_threshold must be in [0, 1], got {self.missing_threshold}"
