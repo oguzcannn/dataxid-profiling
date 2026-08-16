@@ -7,7 +7,9 @@ import polars as pl
 
 from dataxid_profiling._config import ProfileConfig
 from dataxid_profiling._type_inference import infer_types
-from dataxid_profiling._timeseries import compute_timeseries, seasonality_test, stationarity_test
+from dataxid_profiling._timeseries import acf_pacf_curve, compute_timeseries, seasonality_test, stationarity_test
+
+import pytest
 
 class TestStationarityTest:
     def test_trending_series_is_not_stationary(self):
@@ -103,3 +105,29 @@ class TestComputeTimeseriesWithSeasonality:
 
         assert "seasonal_col" in result
         assert result["seasonal_col"]["seasonality_presence"] is True
+
+
+class TestAcfPacfCurve:
+    def test_returns_requested_length(self):
+        n = 200
+        seasonal = [10 * math.sin(2 * math.pi * i / 7) for i in range(n)]
+
+        config = ProfileConfig(timeseries_acf_pacf_lag=100)
+        result = acf_pacf_curve(pl.Series(seasonal), config)
+
+        assert len(result["acf"]) == 100  # capped by n // 2 - 1 = 99, so 0..99
+        assert len(result["pacf"]) == 100
+
+    def test_lag_zero_is_always_one(self):
+        n = 200
+        seasonal = [10 * math.sin(2 * math.pi * i / 7) for i in range(n)]
+
+        result = acf_pacf_curve(pl.Series(seasonal))
+
+        assert result["acf"][0] == pytest.approx(1.0)
+
+    def test_too_few_values_returns_empty(self):
+        result = acf_pacf_curve(pl.Series([1.0, 2.0]))
+
+        assert result["acf"] == []
+        assert result["pacf"] == []

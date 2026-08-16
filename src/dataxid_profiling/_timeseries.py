@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import polars as pl
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import acf, pacf
 
 import numpy as np
 from scipy.fft import fft as _fft
 from scipy.signal import find_peaks
-
 from dataxid_profiling._config import ProfileConfig
 
 def compute_timeseries(
@@ -32,6 +32,7 @@ def compute_timeseries(
         series = df[col_name]
         stationarity = stationarity_test(series, config)
         seasonality = seasonality_test(series, config)
+        curve = acf_pacf_curve(series, config)
 
         is_stationary = stationarity["is_stationary"]
         is_seasonal = seasonality["seasonality_presence"]
@@ -45,6 +46,7 @@ def compute_timeseries(
             **stationarity,
             "is_stationary": is_stationary,
             **seasonality,
+            **curve,
         }
 
     return results
@@ -184,4 +186,34 @@ def seasonality_test(
     return {
         "seasonality_presence": len(seasonalities) > 0,
         "seasonalities": seasonalities,
+    }
+
+
+def acf_pacf_curve(
+    series: pl.Series,
+    config: ProfileConfig | None = None,
+) -> dict:
+    """
+    Full ACF/PACF curve for a single numeric series, up to config.timeseries_acf_pacf_lag.
+    """
+
+    if config is None:
+        config = ProfileConfig()
+
+    values = series.drop_nulls().to_numpy()
+    n = len(values)
+
+    if n < 4:
+        return {"acf": [], "pacf": []}
+
+    max_lag = min(config.timeseries_acf_pacf_lag, n // 2 - 1)
+    if max_lag < 1:
+        return {"acf": [], "pacf": []}
+
+    acf_values = acf(values, nlags=max_lag, fft=True)
+    pacf_values = pacf(values, nlags=max_lag)
+
+    return {
+        "acf": [float(v) for v in acf_values],
+        "pacf": [float(v) for v in pacf_values],
     }
