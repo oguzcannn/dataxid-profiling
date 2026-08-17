@@ -563,6 +563,209 @@
     </script>
     {% endif %}
 
+        {# ── Time Series ── #}
+    {% if timeseries or datetime_summary %}
+    <section>
+      <h2 class="text-lg font-semibold text-brand-teal mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 3v18h18M7 15l3-3 3 2 5-6"/>
+        </svg>
+        Time Series Analysis
+      </h2>
+
+      {# ── Time Series Columns ── #}
+      {% if timeseries %}
+      <div class="space-y-5">
+        {% for ts in timeseries %}
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+
+          <div class="px-6 py-4 border-b border-gray-100">
+            <h3 class="text-lg font-bold text-brand-teal">
+              {{ ts.column }}
+            </h3>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-6">
+
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="text-xs text-gray-400 uppercase tracking-wider">
+                ADF Statistic
+              </div>
+              <div class="text-lg font-bold text-brand-teal mt-1">
+                {{ ts.statistic | format_float }}
+              </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="text-xs text-gray-400 uppercase tracking-wider">
+                ADF p-value
+              </div>
+              <div class="text-lg font-bold text-brand-teal mt-1">
+                {{ ts.p_value | format_float }}
+              </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="text-xs text-gray-400 uppercase tracking-wider">
+                Stationarity
+              </div>
+              <div class="text-lg font-bold mt-1
+                {% if ts.is_stationary %}text-emerald-600{% else %}text-amber-600{% endif %}">
+                {% if ts.is_stationary %}
+                  Stationary
+                {% else %}
+                  Non-stationary
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="text-xs text-gray-400 uppercase tracking-wider">
+                Seasonality
+              </div>
+              <div class="text-lg font-bold mt-1
+                {% if ts.seasonality_presence %}text-emerald-600{% else %}text-gray-500{% endif %}">
+                {% if ts.seasonality_presence %}
+                  Detected
+                {% else %}
+                  Not detected
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-4">
+              <div class="text-xs text-gray-400 uppercase tracking-wider">
+                Seasonal Periods
+              </div>
+              <div class="text-lg font-bold text-brand-teal mt-1">
+                {% if ts.seasonalities %}
+                  {{ ts.seasonalities | join(", ") }}
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+            </div>
+
+          </div>
+
+          {% if ts.acf_chart or ts.pacf_chart %}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6 pb-6">
+
+            {% if ts.acf_chart %}
+            <div class="border border-gray-100 rounded-lg p-3 overflow-hidden">
+              {{ ts.acf_chart | safe }}
+            </div>
+            {% endif %}
+
+            {% if ts.pacf_chart %}
+            <div class="border border-gray-100 rounded-lg p-3 overflow-hidden">
+              {{ ts.pacf_chart | safe }}
+            </div>
+            {% endif %}
+
+          </div>
+          {% endif %}
+
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+
+      {# ── Datetime Columns ── #}
+      {% if datetime_summary %}
+      <div class="mt-6">
+        <h3 class="text-base font-semibold text-brand-teal mb-4">
+          Datetime Analysis
+        </h3>
+
+        <div class="space-y-4">
+          {% for dt in datetime_summary %}
+          <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+
+            <div class="px-6 py-4 border-b border-gray-100">
+              <h4 class="font-bold text-brand-teal">
+                {{ dt.column }}
+              </h4>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
+
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  Start
+                </div>
+                <div class="text-sm font-semibold text-brand-teal mt-1">
+                  {{ dt.start }}
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  End
+                </div>
+                <div class="text-sm font-semibold text-brand-teal mt-1">
+                  {{ dt.end }}
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  Mean Interval (seconds)
+                </div>
+                <div class="text-lg font-bold text-brand-teal mt-1">
+                  {{ dt.mean_interval_seconds | format_float }}
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  Detected Gaps
+                </div>
+                <div class="text-lg font-bold text-brand-teal mt-1">
+                  {{ dt.n_gaps }}
+                </div>
+              </div>
+
+              {% if dt.n_gaps and dt.n_gaps > 0 %}
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  Min Gap (seconds)
+                </div>
+                <div class="text-lg font-bold text-brand-teal mt-1">
+                  {{ dt.gap_min_seconds | format_float }}
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  Max Gap (seconds)
+                </div>
+                <div class="text-lg font-bold text-brand-teal mt-1">
+                  {{ dt.gap_max_seconds | format_float }}
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-lg p-4">
+                <div class="text-xs text-gray-400 uppercase tracking-wider">
+                  Mean Gap (seconds)
+                </div>
+                <div class="text-lg font-bold text-brand-teal mt-1">
+                  {{ dt.gap_mean_seconds | format_float }}
+                </div>
+              </div>
+              {% endif %}
+
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+
     {# ── Missing Values ── #}
     {% if missing_bar_chart %}
     <section>

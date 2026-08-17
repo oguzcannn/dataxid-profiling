@@ -16,7 +16,7 @@ class ProfileConfig:
     text_unique_ratio: float = 0.5  # unique/count > this → text-like, not categorical
 
     # Time series
-    timeseries_active: bool = False  # off by default
+    timeseries_active: bool = True  # on by default
     timeseries_autocorrelation: float = 0.7  # any lag >= this → TIMESERIES
     timeseries_lags: tuple[int, ...] = (1, 7, 14, 30)  # daily/weekly/biweekly/monthly
     timeseries_significance: float = 0.05  # ADF p-value 

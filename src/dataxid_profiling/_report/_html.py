@@ -35,6 +35,8 @@ def render_html(
     alerts: list[Alert],
     correlations: dict[str, CorrelationResult],
     interactions: InteractionData | None = None,
+    timeseries: dict[str, dict] | None = None,
+    datetime_summary: dict[str, dict] | None = None,
     chart_renderer: ChartRenderer | None = None,
 ) -> str:
     renderer = chart_renderer or EChartsRenderer()
@@ -45,6 +47,8 @@ def render_html(
     correlation_charts = _prepare_correlation_charts(correlations, renderer)
     missing_bar_chart = _prepare_missing_bar_chart(overview, renderer)
     interactions_payload = _prepare_interactions(interactions)
+    timeseries_payload = _prepare_timeseries(timeseries, renderer)
+    datetime_payload = _prepare_datetime_summary(datetime_summary)
     alert_dicts = [
         {
             "column": a.column,
@@ -66,6 +70,8 @@ def render_html(
         alerts=alert_dicts,
         correlation_charts=correlation_charts,
         interactions=interactions_payload,
+        timeseries=timeseries_payload,
+        datetime_summary=datetime_payload,
         missing_bar_chart=missing_bar_chart,
         logo_b64=_load_asset_b64("dataxid_logo.png"),
         icon_b64=_load_asset_b64("icon.png"),
@@ -256,3 +262,83 @@ def _prepare_interactions(
         "total_rows": interactions.total_rows,
         "sample_size": interactions.sample_size,
     }
+
+def _prepare_timeseries(
+    timeseries: dict[str, dict] | None,
+    renderer: ChartRenderer,
+) -> list[dict[str, Any]]:
+    """Prepare time series analysis results for the HTML template."""
+    if not timeseries:
+        return []
+
+    payload: list[dict[str, Any]] = []
+
+    for idx, (column, result) in enumerate(timeseries.items()):
+        acf_values = result.get("acf", []) or []
+        pacf_values = result.get("pacf", []) or []
+
+        acf_labels = [str(i) for i in range(len(acf_values))]
+        pacf_labels = [str(i) for i in range(len(pacf_values))]
+
+        acf_chart = ""
+        pacf_chart = ""
+
+        if acf_values:
+            acf_chart = renderer.line(
+                f"ts_acf_{idx}",
+                acf_labels,
+                acf_values,
+                title=f"{column} — ACF",
+                y_min=-1.0,
+                y_max=1.0,
+            )
+
+        if pacf_values:
+            pacf_chart = renderer.line(
+                f"ts_pacf_{idx}",
+                pacf_labels,
+                pacf_values,
+                title=f"{column} — PACF",
+                y_min=-1.0,
+                y_max=1.0,
+            )
+
+        payload.append(
+            {
+                "column": column,
+                "statistic": result.get("statistic"),
+                "p_value": result.get("p_value"),
+                "is_stationary": result.get("is_stationary"),
+                "seasonality_presence": result.get("seasonality_presence"),
+                "seasonalities": result.get("seasonalities", []) or [],
+                "acf_chart": acf_chart,
+                "pacf_chart": pacf_chart,
+            }
+        )
+
+    return payload
+
+def _prepare_datetime_summary(
+    datetime_summary: dict[str, dict] | None,
+) -> list[dict[str, Any]]:
+    """Prepare datetime analysis results for the HTML template."""
+    if not datetime_summary:
+        return []
+
+    payload: list[dict[str, Any]] = []
+
+    for column, result in datetime_summary.items():
+        payload.append(
+            {
+                "column": column,
+                "start": result.get("start"),
+                "end": result.get("end"),
+                "mean_interval_seconds": result.get("mean_interval_seconds"),
+                "n_gaps": result.get("n_gaps"),
+                "gap_min_seconds": result.get("gap_min_seconds"),
+                "gap_max_seconds": result.get("gap_max_seconds"),
+                "gap_mean_seconds": result.get("gap_mean_seconds"),
+            }
+        )
+
+    return payload

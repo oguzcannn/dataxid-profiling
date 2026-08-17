@@ -168,6 +168,8 @@ class ProfileReport:
             alerts=self._alerts,
             correlations=self._correlations,
             interactions=self._interactions,
+            timeseries=self._timeseries,
+            datetime_summary=self._datetime_summary,
         )
         if path is not None:
             from pathlib import Path as P

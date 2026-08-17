@@ -60,6 +60,15 @@ class ChartRenderer(Protocol):
         title: str = "",
     ) -> str: ...
 
+    def line(
+        self,
+        div_id: str,
+        labels: list[str],
+        values: list[int | float],
+        title: str = "",
+        y_min: float | None = None,
+        y_max: float | None = None,
+    ) -> str: ...
 
 class EChartsRenderer:
     """ECharts-based chart renderer. Produces self-contained HTML snippets."""
@@ -97,6 +106,64 @@ class EChartsRenderer:
                 }
             ],
         }
+        return self._wrap(div_id, option, self.CHART_HEIGHT)
+
+    def line(
+        self,
+        div_id: str,
+        labels: list[str],
+        values: list[int | float],
+        title: str = "",
+        y_min: float | None = None,
+        y_max: float | None = None,
+    ) -> str:
+        y_axis: dict[str, object] = {"type": "value"}
+
+        if y_min is not None:
+            y_axis["min"] = y_min
+
+        if y_max is not None:
+            y_axis["max"] = y_max
+
+        option = {
+            "title": {
+                "text": title,
+                "left": "center",
+                "textStyle": {"fontSize": 13},
+            },
+            "tooltip": {
+                "trigger": "axis",
+                "axisPointer": {"type": "cross"},
+            },
+            "grid": {
+                "left": "10%",
+                "right": "5%",
+                "bottom": "15%",
+                "top": "15%",
+            },
+            "xAxis": {
+                "type": "category",
+                "data": labels,
+                "name": "Lag",
+            },
+            "yAxis": y_axis,
+            "series": [
+                {
+                    "type": "line",
+                    "data": values,
+                    "smooth": False,
+                    "showSymbol": True,
+                    "symbolSize": 5,
+                    "lineStyle": {
+                        "width": 2,
+                    },
+                    "itemStyle": {
+                        "color": self.BRAND_TEAL,
+                    },
+                }
+            ],
+        }
+
         return self._wrap(div_id, option, self.CHART_HEIGHT)
 
     def bar_horizontal(

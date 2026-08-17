@@ -40,3 +40,8 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+
+# Local time series testing files
+test_timeseries_html.py
+sales_20k.csv
+timeseries_test_report.html
