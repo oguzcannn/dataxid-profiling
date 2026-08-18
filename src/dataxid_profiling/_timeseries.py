@@ -75,7 +75,11 @@ def stationarity_test(
     if len(values) < 2:
         return {"statistic": None, "p_value": None, "is_stationary": None}
 
-    statistic, p_value = adfuller(values)[:2]
+    statistic, p_value, *_ = adfuller(
+    values,
+    autolag=None,
+    maxlag=10
+    )
 
     return {
         "statistic": statistic,
