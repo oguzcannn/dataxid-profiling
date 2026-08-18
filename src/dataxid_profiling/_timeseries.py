@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
 import polars as pl
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.stattools import acf, pacf
@@ -23,34 +26,51 @@ def compute_timeseries(
 
     from dataxid_profiling._type_inference import ColumnType
 
+    ts_columns = [
+        col_name for col_name, col_type in column_types.items()
+        if col_type == ColumnType.TIMESERIES
+    ]
+
+    if not ts_columns:
+        return {}
+
+    if len(ts_columns) == 1:
+        col_name = ts_columns[0]
+        return {col_name: _analyze_timeseries_column(df[col_name].to_numpy(), config)}
+
     results: dict[str, dict] = {}
+    max_workers = min(len(ts_columns), os.cpu_count() or 1)
 
-    for col_name, col_type in column_types.items():
-        if col_type != ColumnType.TIMESERIES:
-            continue
-
-        series = df[col_name]
-        stationarity = stationarity_test(series, config)
-        seasonality = seasonality_test(series, config)
-        curve = acf_pacf_curve(series, config)
-
-        is_stationary = stationarity["is_stationary"]
-        is_seasonal = seasonality["seasonality_presence"]
-
-        # A seasonal series is not considered truly stationary, even if
-        # the ADF test alone suggests otherwise (matches YData's behavior).
-        if is_stationary is not None:
-            is_stationary = bool(is_stationary and not is_seasonal)
-
-        results[col_name] = {
-            **stationarity,
-            "is_stationary": is_stationary,
-            **seasonality,
-            **curve,
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_analyze_timeseries_column, df[col_name].to_numpy(), config): col_name
+            for col_name in ts_columns
         }
+        for future in as_completed(futures):
+            col_name = futures[future]
+            results[col_name] = future.result()
 
-    return results
+    return {col: results[col] for col in ts_columns}
 
+def _analyze_timeseries_column(values: np.ndarray, config: ProfileConfig) -> dict:
+    series = pl.Series(values)
+
+    stationarity = stationarity_test(series, config)
+    seasonality = seasonality_test(series, config)
+    curve = acf_pacf_curve(series, config)
+
+    is_stationary = stationarity["is_stationary"]
+    is_seasonal = seasonality["seasonality_presence"]
+
+    if is_stationary is not None:
+        is_stationary = bool(is_stationary and not is_seasonal)
+
+    return {
+        **stationarity,
+        "is_stationary": is_stationary,
+        **seasonality,
+        **curve,
+    }
 
 def stationarity_test(
     series: pl.Series,

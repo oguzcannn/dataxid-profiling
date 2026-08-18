@@ -21,7 +21,7 @@ class ProfileConfig:
     timeseries_lags: tuple[int, ...] = (1, 7, 14, 30)  # daily/weekly/biweekly/monthly
     timeseries_significance: float = 0.05  # ADF p-value 
     timeseries_seasonality_mad_threshold: float = 6.0  # FFT peak
-    timeseries_acf_pacf_lag: int = 100  # max lag for the full ACF/PACF curve
+    timeseries_acf_pacf_lag: int = 50  # max lag for the full ACF/PACF curve
     timeseries_gap_tolerance: float = 2.0  # gap flagged if interval > tolerance × mean interval
 
     # Alert thresholds
