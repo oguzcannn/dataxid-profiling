@@ -17,6 +17,7 @@ class ProfileConfig:
 
     # Time series
     timeseries_active: bool = True  # on by default
+    timeseries_sortby: str | None = None  # column to sort by before timeseries/inference runs
     timeseries_autocorrelation: float = 0.7  # any lag >= this → TIMESERIES
     timeseries_lags: tuple[int, ...] = (1, 7, 14, 30)  # daily/weekly/biweekly/monthly
     timeseries_significance: float = 0.05  # ADF p-value 
@@ -79,6 +80,9 @@ class ProfileConfig:
         if self.timeseries_gap_tolerance <= 0:
             msg = f"timeseries_gap_tolerance must be > 0, got {self.timeseries_gap_tolerance}"
             raise ValueError(msg)
+        if self.timeseries_sortby is not None and not isinstance(self.timeseries_sortby, str):
+            msg = f"timeseries_sortby must be a string or None, got {type(self.timeseries_sortby)}"
+            raise TypeError(msg)
         if not 0.0 <= self.missing_threshold <= 1.0:
             msg = f"missing_threshold must be in [0, 1], got {self.missing_threshold}"
             raise ValueError(msg)

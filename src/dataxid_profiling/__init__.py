@@ -51,6 +51,7 @@ class ProfileReport:
             self._config = ProfileConfig(title=title, mode=mode, **kwargs)
 
         self._df: pl.DataFrame = ingest(source)
+        self._df = self._sort_for_timeseries(self._df, self._config)
         self._column_types: dict[str, ColumnType] = infer_types(self._df, self._config)
         self._column_stats: dict[str, ColumnStats] = analyze(
             self._df, self._column_types, self._config
@@ -193,6 +194,27 @@ class ProfileReport:
             P(path).write_text(output, encoding="utf-8")
 
         return output
+
+    @staticmethod
+    def _sort_for_timeseries(df: pl.DataFrame, config: ProfileConfig) -> pl.DataFrame:
+        """Sort by `timeseries_sortby` before any type inference or analysis runs.
+
+        Must happen once, upfront: autocorrelation-based TIMESERIES detection,
+        ADF stationarity, FFT seasonality, and ACF/PACF all assume row order
+        reflects chronological order. Sorting later (e.g. inside
+        compute_timeseries) would leave type inference operating on unsorted
+        data, silently producing wrong TIMESERIES/NUMERIC classifications.
+        """
+        sortby = config.timeseries_sortby
+        if sortby is None:
+            return df
+        if sortby not in df.columns:
+            msg = (
+                f"timeseries_sortby='{sortby}' is not a column in the dataset. "
+                f"Available columns: {df.columns}"
+            )
+            raise ValueError(msg)
+        return df.sort(sortby, nulls_last=True)
 
     def __repr__(self) -> str:
         return (

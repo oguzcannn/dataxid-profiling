@@ -95,11 +95,15 @@ def stationarity_test(
     if len(values) < 2:
         return {"statistic": None, "p_value": None, "is_stationary": None}
 
-    statistic, p_value, *_ = adfuller(
-    values,
-    autolag=None,
-    maxlag=10
-    )
+    try:
+        statistic, p_value, *_ = adfuller(
+            values,
+            autolag=None,
+            maxlag=None,
+        )
+    except ValueError:
+        # Sample too short for ADF's regression component (e.g. < ~12 obs)
+        return {"statistic": None, "p_value": None, "is_stationary": None}
 
     return {
         "statistic": statistic,
