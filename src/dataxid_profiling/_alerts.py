@@ -231,27 +231,35 @@ def _check_correlations(
 def _check_timeseries(
     timeseries: dict[str, dict],
 ) -> list[Alert]:
-    """Flag non-stationary and seasonal time series columns."""
     alerts: list[Alert] = []
 
     for col_name, result in timeseries.items():
         is_stationary = result.get("is_stationary")
-        # is_stationary can be None (sample too small for ADF) — skip those
         if is_stationary is False:
+            p_value = result.get("p_value") or 0.0
             alerts.append(Alert(
                 column=col_name,
                 alert_type=AlertType.NON_STATIONARY,
-                value=result.get("p_value") or 0.0,
-                details={"p_value": result.get("p_value"), "test": "adf"},
+                value=p_value, 
+                details={"p_value": p_value, "test": "adf"},
             ))
 
         if result.get("seasonality_presence"):
             seasonalities = result.get("seasonalities") or []
+            peak_count = len(seasonalities)
+            
+            MAX_EXPECTED_PEAKS = 10
+            strength = min(peak_count / MAX_EXPECTED_PEAKS, 1.0)
+            
             alerts.append(Alert(
                 column=col_name,
                 alert_type=AlertType.SEASONAL,
-                value=float(len(seasonalities)),
-                details={"seasonalities": seasonalities},
+                value=1.0,
+                details={
+                    "seasonalities": seasonalities,
+                    "peak_count": peak_count,
+                    "dominant_period": seasonalities[0] if seasonalities else None,
+                },
             ))
 
     return alerts

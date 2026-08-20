@@ -154,8 +154,18 @@
                   {% else %}bg-orange-50 text-orange-600 ring-1 ring-orange-200{% endif %}">
                   {{ alert.alert_type }}
                 </span>
+              <td class="px-5 py-3 text-gray-600 font-medium">
+                  {% if alert.alert_type == "SEASONAL" %}
+                      {{ alert.details.dominant_period }}
+                      <span class="text-gray-400 text-xs ml-1">
+                          ({{ alert.details.peak_count }} peaks)
+                      </span>
+                  {% elif alert.alert_type == "NON_STATIONARY" %}
+                      {{ alert.value | format_pct }}
+                  {% else %}
+                      {{ alert.value | format_pct }}
+                  {% endif %}
               </td>
-              <td class="px-5 py-3 text-gray-600 font-medium">{{ alert.value | format_pct }}</td>
             </tr>
             {% endfor %}
           </tbody>
