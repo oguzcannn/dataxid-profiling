@@ -72,7 +72,7 @@ class ProfileReport:
             self._df, self._column_types, self._config
         )
         self._alerts: list[Alert] = check_quality(
-            self._column_stats, self._overview, self._config, self._correlations
+            self._column_stats, self._overview, self._config, self._correlations, timeseries=self._timeseries
         )
 
     @property

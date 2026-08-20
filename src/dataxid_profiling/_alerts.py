@@ -30,6 +30,8 @@ class AlertType(Enum):
     IMBALANCED = auto()
     HIGH_CORRELATION = auto()
     UNIFORM = auto()
+    NON_STATIONARY = auto() 
+    SEASONAL = auto() 
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,7 @@ def check_quality(
     overview: DatasetOverview,
     config: ProfileConfig,
     correlations: dict[str, CorrelationResult] | None = None,
+    timeseries: dict[str, dict] | None = None,
 ) -> list[Alert]:
     alerts: list[Alert] = []
 
@@ -60,6 +63,9 @@ def check_quality(
 
     if correlations:
         alerts.extend(_check_correlations(correlations, config))
+
+    if timeseries:                           
+        alerts.extend(_check_timeseries(timeseries))
 
     return alerts
 
@@ -219,5 +225,33 @@ def _check_correlations(
                     value=corr,
                     details={"column_b": col_b, "method": matrix_key},
                 ))
+
+    return alerts
+
+def _check_timeseries(
+    timeseries: dict[str, dict],
+) -> list[Alert]:
+    """Flag non-stationary and seasonal time series columns."""
+    alerts: list[Alert] = []
+
+    for col_name, result in timeseries.items():
+        is_stationary = result.get("is_stationary")
+        # is_stationary can be None (sample too small for ADF) — skip those
+        if is_stationary is False:
+            alerts.append(Alert(
+                column=col_name,
+                alert_type=AlertType.NON_STATIONARY,
+                value=result.get("p_value") or 0.0,
+                details={"p_value": result.get("p_value"), "test": "adf"},
+            ))
+
+        if result.get("seasonality_presence"):
+            seasonalities = result.get("seasonalities") or []
+            alerts.append(Alert(
+                column=col_name,
+                alert_type=AlertType.SEASONAL,
+                value=float(len(seasonalities)),
+                details={"seasonalities": seasonalities},
+            ))
 
     return alerts

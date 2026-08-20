@@ -95,14 +95,19 @@ def stationarity_test(
     if len(values) < 2:
         return {"statistic": None, "p_value": None, "is_stationary": None}
 
+    max_allowed_lag = max(0, len(values) // 2 - 2)
+    if max_allowed_lag < 1:
+        return {"statistic": None, "p_value": None, "is_stationary": None}
+
+    maxlag = min(20, max_allowed_lag)
+
     try:
         statistic, p_value, *_ = adfuller(
             values,
-            autolag=None,
-            maxlag=None,
+            autolag="AIC",
+            maxlag=maxlag,
         )
     except ValueError:
-        # Sample too short for ADF's regression component (e.g. < ~12 obs)
         return {"statistic": None, "p_value": None, "is_stationary": None}
 
     return {
