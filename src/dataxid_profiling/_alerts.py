@@ -248,9 +248,6 @@ def _check_timeseries(
             seasonalities = result.get("seasonalities") or []
             peak_count = len(seasonalities)
             
-            MAX_EXPECTED_PEAKS = 10
-            strength = min(peak_count / MAX_EXPECTED_PEAKS, 1.0)
-            
             alerts.append(Alert(
                 column=col_name,
                 alert_type=AlertType.SEASONAL,
