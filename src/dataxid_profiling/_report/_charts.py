@@ -68,6 +68,7 @@ class ChartRenderer(Protocol):
         title: str = "",
         y_min: float | None = None,
         y_max: float | None = None,
+        band: float | None = None,
     ) -> str: ...
 
 class EChartsRenderer:
@@ -116,6 +117,7 @@ class EChartsRenderer:
         title: str = "",
         y_min: float | None = None,
         y_max: float | None = None,
+        band: float | None = None,
     ) -> str:
         y_axis: dict[str, object] = {"type": "value"}
 
@@ -124,6 +126,32 @@ class EChartsRenderer:
 
         if y_max is not None:
             y_axis["max"] = y_max
+
+        series_entry: dict[str, object] = {
+            "type": "line",
+            "data": values,
+            "smooth": False,
+            "showSymbol": True,
+            "symbolSize": 5,
+            "lineStyle": {
+                "width": 2,
+            },
+            "itemStyle": {
+                "color": self.BRAND_TEAL,
+            },
+        }
+
+        if band is not None:
+            series_entry["markLine"] = {
+                "silent": True,
+                "symbol": "none",
+                "lineStyle": {"type": "dashed", "color": self.BRAND_CORAL},
+                "label": {"formatter": "95% CI", "fontSize": 9},
+                "data": [
+                    {"yAxis": band},
+                    {"yAxis": -band},
+                ],
+            }
 
         option = {
             "title": {
@@ -147,21 +175,7 @@ class EChartsRenderer:
                 "name": "Lag",
             },
             "yAxis": y_axis,
-            "series": [
-                {
-                    "type": "line",
-                    "data": values,
-                    "smooth": False,
-                    "showSymbol": True,
-                    "symbolSize": 5,
-                    "lineStyle": {
-                        "width": 2,
-                    },
-                    "itemStyle": {
-                        "color": self.BRAND_TEAL,
-                    },
-                }
-            ],
+            "series": [series_entry],
         }
 
         return self._wrap(div_id, option, self.CHART_HEIGHT)

@@ -280,6 +280,9 @@ def _prepare_timeseries(
         acf_labels = [str(i) for i in range(len(acf_values))]
         pacf_labels = [str(i) for i in range(len(pacf_values))]
 
+        n_obs = result.get("n_obs")
+        band = (1.96 / (n_obs ** 0.5)) if n_obs and n_obs > 0 else None
+
         acf_chart = ""
         pacf_chart = ""
 
@@ -291,6 +294,7 @@ def _prepare_timeseries(
                 title=f"{column} — ACF",
                 y_min=-1.0,
                 y_max=1.0,
+                band=band,
             )
 
         if pacf_values:
@@ -301,6 +305,7 @@ def _prepare_timeseries(
                 title=f"{column} — PACF",
                 y_min=-1.0,
                 y_max=1.0,
+                band=band,
             )
 
         payload.append(

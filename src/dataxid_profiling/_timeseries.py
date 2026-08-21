@@ -55,6 +55,8 @@ def compute_timeseries(
 def _analyze_timeseries_column(values: np.ndarray, config: ProfileConfig) -> dict:
     series = pl.Series(values)
 
+    n_obs = int(series.drop_nulls().len())
+
     stationarity = stationarity_test(series, config)
     seasonality = seasonality_test(series, config)
     curve = acf_pacf_curve(series, config)
@@ -66,6 +68,7 @@ def _analyze_timeseries_column(values: np.ndarray, config: ProfileConfig) -> dic
         is_stationary = bool(is_stationary and not is_seasonal)
 
     return {
+        "n_obs": n_obs,
         **stationarity,
         "is_stationary": is_stationary,
         **seasonality,
@@ -145,7 +148,8 @@ def _find_seasonal_peaks(
     ampl: np.ndarray,
     mad_threshold: float,
 ) -> list[float]:
-    """Find dominant spectrum peaks, filtering out harmonics of a base peak."""
+    """Find dominant spectrum peaks, filtering out harmonics of a base peak
+    and clustering near-duplicate periods from spectral leakage."""
     positive_ampl = ampl[ampl > 0]
     if len(positive_ampl) == 0:
         return []
@@ -165,12 +169,14 @@ def _find_seasonal_peaks(
 
     keep = peak_ampls > threshold
     peak_freqs = peak_freqs[keep]
+    peak_ampls = peak_ampls[keep]
 
     if len(peak_freqs) == 0:
         return []
 
     order = np.argsort(peak_freqs)
     peak_freqs = peak_freqs[order]
+    peak_ampls = peak_ampls[order]
 
     removed = np.zeros(len(peak_freqs), dtype=bool)
     for i in range(len(peak_freqs)):
@@ -184,23 +190,53 @@ def _find_seasonal_peaks(
             if fraction < 0.01 or fraction > 0.99:
                 removed[j] = True
 
-    return peak_freqs[~removed].tolist()
+    peak_freqs = peak_freqs[~removed]
+    peak_ampls = peak_ampls[~removed]
 
+    return _cluster_close_periods(peak_freqs, peak_ampls)
+
+def _cluster_close_periods(
+    peak_freqs: np.ndarray,
+    peak_ampls: np.ndarray,
+    period_tolerance: float = 0.05,
+) -> list[float]:
+    """Merge peaks whose periods are within `period_tolerance` (relative) of
+    each other into a single representative — the one with the highest
+    amplitude.
+
+    FFT spectral leakage can split one real periodic component into several
+    adjacent, near-identical periods (e.g. 7.15, 7.09, 7.00, 6.93 days).
+    Without this step, seasonalities would list all of them as separate
+    findings instead of one.
+    """
+    if len(peak_freqs) == 0:
+        return []
+
+    periods = 1.0 / peak_freqs
+    order = np.argsort(periods)
+    periods = periods[order]
+    ampls = peak_ampls[order]
+
+    clusters: list[list[int]] = [[0]]
+    for i in range(1, len(periods)):
+        last_cluster_period = periods[clusters[-1][-1]]
+        relative_diff = abs(periods[i] - last_cluster_period) / last_cluster_period
+        if relative_diff <= period_tolerance:
+            clusters[-1].append(i)
+        else:
+            clusters.append([i])
+
+    representatives: list[float] = []
+    for cluster in clusters:
+        best_idx = max(cluster, key=lambda idx: ampls[idx])
+        representatives.append(float(periods[best_idx]))
+
+    return representatives
 
 def seasonality_test(
     series: pl.Series,
     config: ProfileConfig | None = None,
 ) -> dict:
-    """
-    FFT-based seasonality detection for a single numeric series.
-
-    Returns
-    -------
-    dict with:
-        seasonality_presence: True if a dominant, non-harmonic peak was found
-        seasonalities: estimated periods (1 / frequency), longest first
-    """
-
     if config is None:
         config = ProfileConfig()
 
@@ -210,11 +246,10 @@ def seasonality_test(
         return {"seasonality_presence": False, "seasonalities": []}
 
     freq, ampl = _compute_fft_spectrum(values)
-    peak_freqs = _find_seasonal_peaks(
+    seasonalities = _find_seasonal_peaks(
         freq, ampl, config.timeseries_seasonality_mad_threshold,
     )
-
-    seasonalities = sorted((1.0 / f for f in peak_freqs if f != 0), reverse=True)
+    seasonalities = sorted(seasonalities, reverse=True)
 
     return {
         "seasonality_presence": len(seasonalities) > 0,
