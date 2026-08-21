@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+import math
 import polars as pl
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.stattools import acf, pacf
@@ -17,10 +18,6 @@ def compute_timeseries(
     column_types: dict,
     config: ProfileConfig | None = None,
 ) -> dict[str, dict]:
-    """
-    Run stationarity_test and seasonality_test on every column inferred as TIMESERIES.
-    """
-
     if config is None:
         config = ProfileConfig()
 
@@ -34,16 +31,20 @@ def compute_timeseries(
     if not ts_columns:
         return {}
 
+    dates = None
+    if config.timeseries_sortby and config.timeseries_sortby in df.columns:
+        dates = df[config.timeseries_sortby].to_numpy()
+
     if len(ts_columns) == 1:
         col_name = ts_columns[0]
-        return {col_name: _analyze_timeseries_column(df[col_name].to_numpy(), config)}
+        return {col_name: _analyze_timeseries_column(df[col_name].to_numpy(), config, dates)}
 
     results: dict[str, dict] = {}
     max_workers = min(len(ts_columns), os.cpu_count() or 1)
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(_analyze_timeseries_column, df[col_name].to_numpy(), config): col_name
+            executor.submit(_analyze_timeseries_column, df[col_name].to_numpy(), config, dates): col_name
             for col_name in ts_columns
         }
         for future in as_completed(futures):
@@ -52,7 +53,11 @@ def compute_timeseries(
 
     return {col: results[col] for col in ts_columns}
 
-def _analyze_timeseries_column(values: np.ndarray, config: ProfileConfig) -> dict:
+def _analyze_timeseries_column(
+    values: np.ndarray,
+    config: ProfileConfig,
+    dates: np.ndarray | None = None,
+) -> dict:
     series = pl.Series(values)
 
     n_obs = int(series.drop_nulls().len())
@@ -67,12 +72,16 @@ def _analyze_timeseries_column(values: np.ndarray, config: ProfileConfig) -> dic
     if is_stationary is not None:
         is_stationary = bool(is_stationary and not is_seasonal)
 
+    plot_values, plot_dates = _downsample_for_plot(values, dates)
+
     return {
         "n_obs": n_obs,
         **stationarity,
         "is_stationary": is_stationary,
         **seasonality,
         **curve,
+        "plot_values": plot_values,
+        "plot_dates": plot_dates,
     }
 
 def stationarity_test(
@@ -347,3 +356,23 @@ def compute_datetime_summary(
         results[col_name] = datetime_axis_summary(df[col_name], config)
 
     return results
+
+_MAX_TIMEPLOT_POINTS = 500
+
+def _downsample_for_plot(
+    values: np.ndarray,
+    dates: np.ndarray | None,
+    max_points: int = _MAX_TIMEPLOT_POINTS,
+) -> tuple[list, list | None]:
+    """Evenly sample up to `max_points` values (+ matching dates) for the
+    raw time plot — rendering millions of raw points in the browser is
+    neither useful nor performant."""
+    n = len(values)
+    idx = np.arange(n) if n <= max_points else np.linspace(0, n - 1, max_points).astype(int)
+
+    vals = [
+        None if (v is None or (isinstance(v, float) and math.isnan(v))) else float(v)
+        for v in values[idx].tolist()
+    ]
+    dts = [str(d) for d in dates[idx]] if dates is not None else None
+    return vals, dts

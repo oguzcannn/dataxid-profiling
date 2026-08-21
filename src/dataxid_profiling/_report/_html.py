@@ -308,6 +308,19 @@ def _prepare_timeseries(
                 band=band,
             )
 
+        time_plot_chart = ""
+        plot_values = result.get("plot_values") or []
+        if plot_values:
+            plot_dates = result.get("plot_dates")
+            time_labels = plot_dates if plot_dates else [str(i) for i in range(len(plot_values))]
+            time_plot_chart = renderer.line(
+                f"ts_plot_{idx}",
+                time_labels,
+                plot_values,
+                title=f"{column} — Time Plot",
+                x_axis_name="Time",
+            )
+
         payload.append(
             {
                 "column": column,
@@ -318,6 +331,7 @@ def _prepare_timeseries(
                 "seasonalities": result.get("seasonalities", []) or [],
                 "acf_chart": acf_chart,
                 "pacf_chart": pacf_chart,
+                "time_plot_chart": time_plot_chart,
             }
         )
 

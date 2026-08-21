@@ -659,6 +659,14 @@
 
           </div>
 
+          {% if ts.time_plot_chart %}
+          <div class="px-6 pb-4">
+            <div class="border border-gray-100 rounded-lg p-3 overflow-hidden">
+              {{ ts.time_plot_chart | safe }}
+            </div>
+          </div>
+          {% endif %}
+
           {% if ts.acf_chart or ts.pacf_chart %}
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6 pb-6">
 

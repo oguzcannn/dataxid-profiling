@@ -69,6 +69,7 @@ class ChartRenderer(Protocol):
         y_min: float | None = None,
         y_max: float | None = None,
         band: float | None = None,
+        x_axis_name: str = "Lag",
     ) -> str: ...
 
 class EChartsRenderer:
@@ -118,6 +119,7 @@ class EChartsRenderer:
         y_min: float | None = None,
         y_max: float | None = None,
         band: float | None = None,
+        x_axis_name: str = "Lag", 
     ) -> str:
         y_axis: dict[str, object] = {"type": "value"}
 
@@ -172,7 +174,7 @@ class EChartsRenderer:
             "xAxis": {
                 "type": "category",
                 "data": labels,
-                "name": "Lag",
+                "name": x_axis_name,   
             },
             "yAxis": y_axis,
             "series": [series_entry],
